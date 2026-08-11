@@ -17,7 +17,7 @@ jobs:
           DEBIAN_FRONTEND: noninteractive
         run: |
           apt-get update
-          apt-get install -y build-essential bc bison flex libssl-dev python3 zip unzip curl git sudo
+          apt-get install -y build-essential bc bison flex libssl-dev python3 python-is-python3 python2 zip unzip curl git sudo
 
       - name: Clone Kernel Source
         run: |
@@ -58,7 +58,7 @@ jobs:
           export CLANG_TRIPLE=aarch64-linux-gnu-
           
           make O=out a9y18qlte_defconfig
-          make O=out -j$(nproc) 2>&1 | tee build.log
+          make O=out -j$(nproc) Image.gz-dtb 2>&1 | tee build.log
 
       - name: Package AnyKernel3
         run: |
@@ -68,8 +68,20 @@ jobs:
           if [ -f "thongass000-v4.4.205-stable.zip" ]; then
             unzip -q thongass000-v4.4.205-stable.zip -d ak3/
             
+            # Cari file image kernel hasil build
+            if [ -f "kernel_a9/out/arch/arm64/boot/Image.gz-dtb" ]; then
+              KERNEL_IMAGE="kernel_a9/out/arch/arm64/boot/Image.gz-dtb"
+            elif [ -f "kernel_a9/out/arch/arm64/boot/Image.gz" ]; then
+              KERNEL_IMAGE="kernel_a9/out/arch/arm64/boot/Image.gz"
+            elif [ -f "kernel_a9/out/arch/arm64/boot/Image" ]; then
+              KERNEL_IMAGE="kernel_a9/out/arch/arm64/boot/Image"
+            else
+              echo "ERROR: Compiled kernel image tidak ditemukan!"
+              exit 1
+            fi
+            
             # Ganti Image
-            cp kernel_a9/out/arch/arm64/boot/Image.gz-dtb ak3/
+            cp $KERNEL_IMAGE ak3/
             
             # Ganti label
             sed -i 's/kernel.string=.*/kernel.string=KernelSU-Next @ a9y18qlte by @thongass000/g' ak3/anykernel.sh
@@ -77,16 +89,17 @@ jobs:
             cd ak3
             zip -r9 ../a9y18qlte-KSUN.zip * -x .git
           else
-            echo "ERROR: thongass000-v4.4.205-stable.zip not found! Uploading raw Image.gz-dtb instead."
-            # Fallback packing if zip doesn't exist so workflow doesn't fail upload completely
-            cp kernel_a9/out/arch/arm64/boot/Image.gz-dtb a9y18qlte-KSUN.zip
+            echo "ERROR: thongass000-v4.4.205-stable.zip not found! Uploading raw image instead."
+            # Fallback packing
+            if [ -f "kernel_a9/out/arch/arm64/boot/Image.gz-dtb" ]; then cp kernel_a9/out/arch/arm64/boot/Image.gz-dtb a9y18qlte-KSUN.zip; else cp kernel_a9/out/arch/arm64/boot/Image* a9y18qlte-KSUN.zip || true; fi
           fi
+        shell: /usr/bin/bash -e {0}
 
       - name: Upload Build Log
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: build-log
+          name: Build-Log
           path: kernel_a9/build.log
 
       - name: Upload Kernel Zip
