@@ -5,15 +5,19 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
+    container:
+      image: ubuntu:20.04
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
       - name: Install Dependencies
+        env:
+          DEBIAN_FRONTEND: noninteractive
         run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential bc bison flex libssl-dev python3 zip unzip curl git
+          apt-get update
+          apt-get install -y build-essential bc bison flex libssl-dev python3 zip unzip curl git sudo
 
       - name: Clone Kernel Source
         run: |
@@ -44,6 +48,7 @@ jobs:
 
       - name: Build Kernel
         run: |
+          set -eo pipefail
           cd kernel_a9
           export ARCH=arm64
           export SUBARCH=arm64
