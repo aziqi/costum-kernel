@@ -50,14 +50,15 @@ jobs:
       - name: Patch gcc-wrapper.py for GCC9 Compatibility
         shell: /bin/bash -eo pipefail {0}
         run: |
-          # Samsung's gcc-wrapper.py has an EMPTY allowed_warnings whitelist.
-          # GCC9 generates new warnings (unknown to Samsung) that immediately abort the build.
-          # Solution: insert the known GCC9 warnings into the whitelist using sed.
-          # The line we're inserting AFTER is:  allowed_warnings = set([
-          sed -i 's/allowed_warnings = set(\[/allowed_warnings = set([\n    "ecryptfs_dek.c:368",/' \
-            kernel_a9/scripts/gcc-wrapper.py
-          echo "Whitelist patch applied:"
-          grep -A3 'allowed_warnings' kernel_a9/scripts/gcc-wrapper.py
+          # Samsung's gcc-wrapper.py is a "forbidden warnings" interceptor with an EMPTY whitelist.
+          # GCC9/Clang generates new warnings that Samsung's script treats as fatal build errors.
+          # Nuclear fix: patch the kernel top-level Makefile to bypass the wrapper entirely.
+          # This replaces: CC = $(PYTHON) gcc-wrapper.py $(REAL_CC)
+          # With:          CC = $(REAL_CC)  (just the compiler directly)
+          sed -i 's|CC\t\t= $(PYTHON) $(srctree)/scripts/gcc-wrapper.py $(REAL_CC)|CC\t\t= $(REAL_CC)|' \
+            kernel_a9/Makefile
+          echo "Makefile patch verification:"
+          grep -n "REAL_CC\|gcc-wrapper" kernel_a9/Makefile | head -5
 
 
       - name: Build Kernel
