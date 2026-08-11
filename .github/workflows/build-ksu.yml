@@ -47,6 +47,37 @@ jobs:
           echo "CONFIG_KSU=y" >> arch/arm64/configs/a9y18qlte_defconfig
           echo "CONFIG_KSU_MANUAL_HOOK=y" >> arch/arm64/configs/a9y18qlte_defconfig
 
+      - name: Patch gcc-wrapper.py for Python3 and GCC9 Compatibility
+        shell: /bin/bash -eo pipefail {0}
+        run: |
+          # gcc-wrapper.py is Samsung's "forbidden warnings" system written in Python 2.
+          # It fails with GCC9 which introduces new warnings unknown to Samsung's whitelist.
+          # Fix 1: Modernize print syntax (Python 2 -> Python 3 compatible)
+          sed -i 's/print >> sys.stderr,/print(/g; s/\(print(.*\)$/\1, file=sys.stderr)/' kernel_a9/scripts/gcc-wrapper.py
+          
+          # Fix 2: Add GCC9 new warnings to the allowed_warnings whitelist
+          # so Samsung's forbidden warning system doesn't abort the build.
+          python3 - <<'EOF'
+import re
+
+with open('kernel_a9/scripts/gcc-wrapper.py', 'r') as f:
+    content = f.read()
+
+# Add GCC9 warnings that Samsung's code legitimately triggers to the whitelist
+new_warnings = """allowed_warnings = set([
+    "ecryptfs_dek.c:368",
+])
+"""
+content = re.sub(r'allowed_warnings = set\(\[.*?\]\)', new_warnings.strip(), content, flags=re.DOTALL)
+
+with open('kernel_a9/scripts/gcc-wrapper.py', 'w') as f:
+    f.write(content)
+
+print("gcc-wrapper.py patched successfully")
+EOF
+
+
+
       - name: Build Kernel
         shell: /bin/bash -eo pipefail {0}
         run: |
