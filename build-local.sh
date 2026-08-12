@@ -10,9 +10,9 @@ if [ ! -d "toolchain" ]; then
 fi
 export PATH="$(pwd)/toolchain/bin:$PATH"
 
-echo "[3] Integrate KernelSU-Next (branch next)..."
+echo "[3] Integrate KernelSU-Next (branch legacy)..."
 cd kernel_a9
-git clone --depth=1 --branch next https://github.com/KernelSU-Next/KernelSU-Next KernelSU-Next
+git clone --depth=1 --branch legacy https://github.com/KernelSU-Next/KernelSU-Next KernelSU-Next
 cd drivers
 ln -sf ../../KernelSU-Next/kernel kernelsu
 cd ..

@@ -34,8 +34,8 @@ jobs:
         run: |
           cd kernel_a9
 
-          # 1. Clone KernelSU-Next (branch next) — official non-GKI source
-          git clone --depth=1 --branch next https://github.com/KernelSU-Next/KernelSU-Next KernelSU-Next
+          # 1. Clone KernelSU-Next (branch legacy) — official non-GKI source
+          git clone --depth=1 --branch legacy https://github.com/KernelSU-Next/KernelSU-Next KernelSU-Next
 
           # 2. Wire the driver into the kernel tree (symlink + Kconfig/Makefile)
           cd drivers
@@ -58,11 +58,15 @@ jobs:
           cd kernel_a9
           python3 "${GITHUB_WORKSPACE}/scripts/inject-ksu-hooks.py"
 
-          # Verify all five hooks are present before building
-          for sym in ksu_handle_execveat ksu_handle_faccessat ksu_handle_sys_read ksu_handle_stat ksu_handle_sys_reboot; do
-            grep -rq "$sym" fs/exec.c fs/open.c fs/read_write.c fs/stat.c kernel/reboot.c \
-              || { echo "HOOK MISSING: $sym"; exit 1; }
-          done
+          # Verify all four hooks are present before building
+          grep -q "ksu_handle_execveat_sucompat" fs/exec.c \
+            || { echo "HOOK MISSING: ksu_handle_execveat_sucompat in fs/exec.c"; exit 1; }
+          grep -q "ksu_handle_faccessat" fs/open.c \
+            || { echo "HOOK MISSING: ksu_handle_faccessat in fs/open.c"; exit 1; }
+          grep -q "ksu_handle_stat" fs/stat.c \
+            || { echo "HOOK MISSING: ksu_handle_stat in fs/stat.c"; exit 1; }
+          grep -q "ksu_handle_sys_reboot" kernel/reboot.c \
+            || { echo "HOOK MISSING: ksu_handle_sys_reboot in kernel/reboot.c"; exit 1; }
           echo "All KSU manual hooks present."
 
       - name: Patch gcc-wrapper.py for GCC9 Compatibility
