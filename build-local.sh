@@ -10,43 +10,52 @@ if [ ! -d "toolchain" ]; then
 fi
 export PATH="$(pwd)/toolchain/bin:$PATH"
 
-echo "[3] Integrate KernelSU-Next..."
+echo "[3] Integrate KernelSU-Next (branch next)..."
 cd kernel_a9
-curl -LSs "https://raw.githubusercontent.com/mlm-games/KernelSU-Non-GKI/main/kernel/setup-subm.sh" | bash -s
-python3 KernelSU/scripts/integrate-no-kprobe.py arch/arm64/configs/a9y18qlte_defconfig
+git clone --depth=1 --branch next https://github.com/KernelSU-Next/KernelSU-Next KernelSU-Next
+cd drivers
+ln -sf ../../KernelSU-Next/kernel kernelsu
+cd ..
+grep -q "kernelsu" drivers/Makefile || printf '\nobj-$(CONFIG_KSU) += kernelsu/\n' >> drivers/Makefile
+grep -q 'source "drivers/kernelsu/Kconfig"' drivers/Kconfig || \
+  sed -i '/^endmenu/i\source "drivers/kernelsu/Kconfig"' drivers/Kconfig
 
-echo "[4] Patch defconfig..."
-sed -i 's/CONFIG_HAVE_KPROBES=y/# CONFIG_HAVE_KPROBES is not set/g' arch/arm64/configs/a9y18qlte_defconfig
-echo "# CONFIG_KPROBE_EVENTS is not set" >> arch/arm64/configs/a9y18qlte_defconfig
-echo "CONFIG_KSU=y" >> arch/arm64/configs/a9y18qlte_defconfig
-echo "CONFIG_KSU_MANUAL_HOOK=y" >> arch/arm64/configs/a9y18qlte_defconfig
+DEF=arch/arm64/configs/a9y18qlte_defconfig
+sed -i 's/^CONFIG_HAVE_KPROBES=y/# CONFIG_HAVE_KPROBES is not set/' "$DEF"
+grep -q '^# CONFIG_KPROBE_EVENTS is not set' "$DEF" || echo "# CONFIG_KPROBE_EVENTS is not set" >> "$DEF"
+grep -q '^CONFIG_KSU=y' "$DEF" || echo "CONFIG_KSU=y" >> "$DEF"
+grep -q '^CONFIG_KSU_MANUAL_HOOK=y' "$DEF" || echo "CONFIG_KSU_MANUAL_HOOK=y" >> "$DEF"
+cd ..
+
+echo "[4] Inject manual hooks..."
+cd kernel_a9
+python3 "../scripts/inject-ksu-hooks.py"
+cd ..
 
 echo "[5] Build kernel..."
+cd kernel_a9
 export ARCH=arm64
 export SUBARCH=arm64
 export CC=clang
 export CROSS_COMPILE=aarch64-linux-gnu-
 export CROSS_COMPILE_ARM32=arm-linux-gnueabi-
 export CLANG_TRIPLE=aarch64-linux-gnu-
-
 make O=out a9y18qlte_defconfig
 make O=out -j$(nproc) 2>&1 | tee build.log
+cd ..
 
 echo "[6] Package AnyKernel3..."
-cd ..
 if [ ! -f "thongass000-v4.4.205-stable.zip" ]; then
     echo "ERROR: thongass000-v4.4.205-stable.zip not found in current directory!"
     exit 1
 fi
-
 rm -rf ak3
 mkdir ak3
 unzip -q thongass000-v4.4.205-stable.zip -d ak3/
 cp kernel_a9/out/arch/arm64/boot/Image.gz-dtb ak3/
 sed -i 's/kernel.string=.*/kernel.string=KernelSU-Next @ a9y18qlte by @thongass000/g' ak3/anykernel.sh
-
 cd ak3
 zip -r9 ../a9y18qlte-KSUN.zip * -x .git
 cd ..
 
-echo "✅ SUCCESS: a9y18qlte-KSUN.zip is ready!"
+echo "SUCCESS: a9y18qlte-KSUN.zip is ready!"

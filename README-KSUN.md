@@ -53,4 +53,4 @@ Jika terjadi *bootloop* atau KSU tidak terdeteksi:
 *   **Bootloop logo:** Ini menandakan hook di `fs/exec.c` tidak kompatibel atau terjadi *kernel panic*. Untuk memastikannya, ekstrak `boot.img` asli dari ROM kamu dan flash via TWRP agar HP bisa nyala kembali.
 *   **Aplikasi KernelSU Manager "Not Supported":** KSU gagal di-compile atau tidak ter-hook dengan benar ke kernel. Cek file `build.log` dari hasil GitHub Actions untuk melihat apakah ada error saat script Python melakukan integrasi.
 
-*Script integrasi yang digunakan menggunakan versi fallback (`mlm-games/KernelSU-Non-GKI`) yang disesuaikan untuk device Non-GKI seperti a9y18qlte.*
+Integrasi menggunakan KernelSU-Next (branch next) yang di-clone langsung, disymlink ke `drivers/kernelsu`, lalu hook manual (non-kprobe) disuntikkan secara deterministik via `scripts/inject-ksu-hooks.py` ke `fs/exec.c`, `fs/open.c`, `fs/read_write.c`, `fs/stat.c`, dan `kernel/reboot.c`.
